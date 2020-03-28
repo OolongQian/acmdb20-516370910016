@@ -10,6 +10,9 @@ public class RecordId implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    private final PageId pid;
+    private final int tupleNo;
+
     /**
      * Creates a new RecordId referring to the specified PageId and tuple
      * number.
@@ -21,6 +24,8 @@ public class RecordId implements Serializable {
      */
     public RecordId(PageId pid, int tupleno) {
         // some code goes here
+        this.pid = pid;
+        this.tupleNo = tupleno;
     }
 
     /**
@@ -28,7 +33,7 @@ public class RecordId implements Serializable {
      */
     public int tupleno() {
         // some code goes here
-        return 0;
+        return tupleNo;
     }
 
     /**
@@ -36,7 +41,7 @@ public class RecordId implements Serializable {
      */
     public PageId getPageId() {
         // some code goes here
-        return null;
+        return pid;
     }
 
     /**
@@ -48,7 +53,14 @@ public class RecordId implements Serializable {
     @Override
     public boolean equals(Object o) {
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
+        if (o == null)
+            return false;
+
+        if (!(o instanceof RecordId))
+            return false;
+
+        RecordId oRid = (RecordId) o;
+        return oRid.getPageId().equals(getPageId()) && oRid.tupleno() == tupleno();
     }
 
     /**
@@ -60,8 +72,11 @@ public class RecordId implements Serializable {
     @Override
     public int hashCode() {
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
-
+        // concatenate their binary representation, and then parse it to integer hashcode.
+        String hashStr = Integer.toBinaryString(pid.hashCode()) + Integer.toBinaryString(tupleNo);
+        if (hashStr.length() > 32)
+            hashStr = hashStr.substring(0, 31);
+        return Integer.parseInt(hashStr, 2);
     }
 
 }
