@@ -1,9 +1,6 @@
 package simpledb;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -17,6 +14,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * @Threadsafe
  */
 public class Catalog {
+    private LinkedList<Integer> tableIds; // for table id iterator support
+    private LinkedList<Table> tables;
 
     /**
      * Constructor.
@@ -24,6 +23,23 @@ public class Catalog {
      */
     public Catalog() {
         // some code goes here
+        tables = new LinkedList<>();
+        tableIds = new LinkedList<>();
+    }
+
+    /**
+     * A helper class for table encapsulation.
+     * */
+    private static class Table implements Serializable {
+        public final DbFile file;
+        public final String name;
+        public final String pkeyField;
+
+        public Table(DbFile file, String name, String pkeyField) {
+            this.file = file;
+            this.name = name;
+            this.pkeyField = pkeyField;
+        }
     }
 
     /**
@@ -37,6 +53,21 @@ public class Catalog {
      */
     public void addTable(DbFile file, String name, String pkeyField) {
         // some code goes here
+        assert name != null;
+
+        // check whether have a naming conflict.
+        // if so, remove the existing one.
+        // note! there is id conflict in test, which needs to be included.
+        for (int i = 0; i < tables.size(); ++i) {
+            if (tables.get(i).name.equals(name) || tables.get(i).file.getId() == file.getId()) {
+                assert tables.get(i).file.getId() == tableIds.get(i);
+                tables.remove(i);
+                tableIds.remove(i);
+                break;
+            }
+        }
+        tables.add(new Table(file, name, pkeyField));
+        tableIds.add(file.getId());
     }
 
     public void addTable(DbFile file, String name) {
@@ -60,7 +91,16 @@ public class Catalog {
      */
     public int getTableId(String name) throws NoSuchElementException {
         // some code goes here
-        return 0;
+        if (name == null)
+            throw new NoSuchElementException();
+
+        for (Table table : tables) {
+            if (name.equals(table.name)) {
+                return table.file.getId();
+            }
+        }
+
+        throw new NoSuchElementException();
     }
 
     /**
@@ -71,7 +111,13 @@ public class Catalog {
      */
     public TupleDesc getTupleDesc(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+        for (Table table : tables) {
+            if (tableid == table.file.getId()) {
+                return table.file.getTupleDesc();
+            }
+        }
+
+        throw new NoSuchElementException();
     }
 
     /**
@@ -82,27 +128,46 @@ public class Catalog {
      */
     public DbFile getDatabaseFile(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+        for (Table table : tables) {
+            if (table.file.getId() == tableid) {
+                return table.file;
+            }
+        }
+
+        throw new NoSuchElementException();
     }
 
     public String getPrimaryKey(int tableid) {
-        // some code goes here
-        return null;
+        for (Table table : tables) {
+            if (table.file.getId() == tableid) {
+                return table.pkeyField;
+            }
+        }
+
+        throw new NoSuchElementException();
     }
 
     public Iterator<Integer> tableIdIterator() {
         // some code goes here
-        return null;
+        return tableIds.iterator();
     }
 
     public String getTableName(int id) {
         // some code goes here
-        return null;
+        for (Table table : tables) {
+            if (table.file.getId() == id) {
+                return table.name;
+            }
+        }
+
+        throw new NoSuchElementException();
     }
     
     /** Delete all tables from the catalog */
     public void clear() {
         // some code goes here
+        tables.clear();
+        tableIds.clear();
     }
     
     /**
