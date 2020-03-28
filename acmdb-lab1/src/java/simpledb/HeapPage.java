@@ -46,15 +46,15 @@ public class HeapPage implements Page {
 
         // allocate and read the header slots of this page
         header = new byte[getHeaderSize()];
-        for (int i=0; i<header.length; i++)
+        for (int i = 0; i < header.length; i++)
             header[i] = dis.readByte();
         
         tuples = new Tuple[numSlots];
         try{
             // allocate and read the actual records of this page
-            for (int i=0; i<tuples.length; i++)
-                tuples[i] = readNextTuple(dis,i);
-        }catch(NoSuchElementException e){
+            for (int i = 0; i < tuples.length; i++)
+                tuples[i] = readNextTuple(dis, i);
+        } catch (NoSuchElementException e) {
             e.printStackTrace();
         }
         dis.close();
@@ -67,8 +67,7 @@ public class HeapPage implements Page {
     */
     private int getNumTuples() {        
         // some code goes here
-        return 0;
-
+        return (int) Math.floor((BufferPool.getPageSize() * 8.) / (td.getSize() * 8. + 1.));
     }
 
     /**
@@ -78,7 +77,7 @@ public class HeapPage implements Page {
     private int getHeaderSize() {        
         
         // some code goes here
-        return 0;
+        return (int) Math.ceil(numSlots / 8.);
                  
     }
     
@@ -103,7 +102,7 @@ public class HeapPage implements Page {
     public void setBeforeImage() {
         synchronized(oldDataLock)
         {
-        oldData = getPageData().clone();
+            oldData = getPageData().clone();
         }
     }
 
@@ -111,8 +110,8 @@ public class HeapPage implements Page {
      * @return the PageId associated with this page.
      */
     public HeapPageId getId() {
-    // some code goes here
-    throw new UnsupportedOperationException("implement this");
+        // some code goes here
+        return pid;
     }
 
     /**
@@ -265,7 +264,7 @@ public class HeapPage implements Page {
      */
     public void markDirty(boolean dirty, TransactionId tid) {
         // some code goes here
-	// not necessary for lab1
+	    // not necessary for lab1
     }
 
     /**
@@ -273,7 +272,7 @@ public class HeapPage implements Page {
      */
     public TransactionId isDirty() {
         // some code goes here
-	// Not necessary for lab1
+	    // Not necessary for lab1
         return null;      
     }
 
@@ -282,7 +281,14 @@ public class HeapPage implements Page {
      */
     public int getNumEmptySlots() {
         // some code goes here
-        return 0;
+        int cnt = 0;
+        String strSlots = byteArToBitString (header).substring(0, numSlots);
+        for (int i = 0; i < strSlots.length(); ++i) {
+            if (strSlots.charAt(i) == '0') {
+                cnt += 1;
+            }
+        }
+        return cnt;
     }
 
     /**
@@ -290,7 +296,8 @@ public class HeapPage implements Page {
      */
     public boolean isSlotUsed(int i) {
         // some code goes here
-        return false;
+        String strSlots = byteArToBitString (header).substring(0, numSlots);
+        return strSlots.charAt(i) == '1';
     }
 
     /**
@@ -307,8 +314,49 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
-        return null;
+        return new Iterator<Tuple>() {
+            private int curBit = -1;
+
+            @Override
+            public boolean hasNext() {
+                // check whether there is '1' left.
+                String strSlots = byteArToBitString (header).substring(0, numSlots);
+                for (int i = curBit + 1; i < strSlots.length(); ++i) {
+                    if (strSlots.charAt(i) == '1') {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public Tuple next() {
+                String strSlots = byteArToBitString (header).substring(0, numSlots);
+                for (int i = curBit + 1; i < strSlots.length(); ++i) {
+                    if (strSlots.charAt(i) == '1') {
+                        curBit = i;
+                        return tuples[i];
+                    }
+                }
+                throw new IndexOutOfBoundsException();
+            }
+        };
     }
 
+    /**
+     * Utility for converting byte[] to bit string.
+     * */
+    private static String byteToBitString(byte b) {
+        return ""
+                + (byte) ((b >> 0) & 0x1) + (byte) ((b >> 1) & 0x1)
+                + (byte) ((b >> 2) & 0x1) + (byte) ((b >> 3) & 0x1)
+                + (byte) ((b >> 4) & 0x1) + (byte) ((b >> 5) & 0x1)
+                + (byte) ((b >> 6) & 0x1) + (byte) ((b >> 7) & 0x1);
+    }
+    private String byteArToBitString(byte[] bAr) {
+        String bitStr = "";
+        for (byte b : bAr) bitStr += byteToBitString(b);
+        return bitStr;
+    }
 }
 
