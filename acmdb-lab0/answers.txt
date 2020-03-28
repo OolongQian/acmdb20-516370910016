@@ -1,6 +1,0 @@
-In this assignment, I have insatlled JDK 1.8, Ant on ubuntu virtual machine. 
-I created my github repo acmdb20-516370910016 and push the dbassets up to it. 
-I performed unit test and system test with command line and intellij. 
-I tried azure-pipeline to test my database on the standard online virtual machine. 
-I did not meet anything particular frustrating. 
-The whole process takes me around 1-2 hours. 
