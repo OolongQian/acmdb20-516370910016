@@ -14,7 +14,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * @Threadsafe
  */
 public class Catalog {
-    private LinkedList<Integer> tableIds; // for table id iterator support
     private LinkedList<Table> tables;
 
     /**
@@ -24,7 +23,6 @@ public class Catalog {
     public Catalog() {
         // some code goes here
         tables = new LinkedList<>();
-        tableIds = new LinkedList<>();
     }
 
     /**
@@ -60,14 +58,11 @@ public class Catalog {
         // note! there is id conflict in test, which needs to be included.
         for (int i = 0; i < tables.size(); ++i) {
             if (tables.get(i).name.equals(name) || tables.get(i).file.getId() == file.getId()) {
-                assert tables.get(i).file.getId() == tableIds.get(i);
                 tables.remove(i);
-                tableIds.remove(i);
                 break;
             }
         }
         tables.add(new Table(file, name, pkeyField));
-        tableIds.add(file.getId());
     }
 
     public void addTable(DbFile file, String name) {
@@ -149,7 +144,18 @@ public class Catalog {
 
     public Iterator<Integer> tableIdIterator() {
         // some code goes here
-        return tableIds.iterator();
+        return new Iterator<Integer>() {
+            private Iterator<Table> iterTable = tables.iterator();
+            @Override
+            public boolean hasNext() {
+                return iterTable.hasNext();
+            }
+
+            @Override
+            public Integer next() {
+                return iterTable.next().file.getId();
+            }
+        };
     }
 
     public String getTableName(int id) {
@@ -167,7 +173,6 @@ public class Catalog {
     public void clear() {
         // some code goes here
         tables.clear();
-        tableIds.clear();
     }
     
     /**
