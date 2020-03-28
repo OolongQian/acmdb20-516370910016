@@ -1,7 +1,7 @@
 package simpledb;
 
 import java.io.Serializable;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Iterator;
 
 /**
@@ -13,6 +13,10 @@ public class Tuple implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    private TupleDesc schema;
+    private RecordId recordId;
+    private ArrayList<Field> tupleField = new ArrayList<>();
+
     /**
      * Create a new tuple with the specified schema (type).
      *
@@ -22,6 +26,11 @@ public class Tuple implements Serializable {
      */
     public Tuple(TupleDesc td) {
         // some code goes here
+        schema = td;
+
+        // add clear slot when init tuple
+        for (int i = 0; i < td.numFields(); ++i)
+            tupleField.add(null);
     }
 
     /**
@@ -29,7 +38,7 @@ public class Tuple implements Serializable {
      */
     public TupleDesc getTupleDesc() {
         // some code goes here
-        return null;
+        return schema;
     }
 
     /**
@@ -38,7 +47,7 @@ public class Tuple implements Serializable {
      */
     public RecordId getRecordId() {
         // some code goes here
-        return null;
+        return recordId;
     }
 
     /**
@@ -49,6 +58,7 @@ public class Tuple implements Serializable {
      */
     public void setRecordId(RecordId rid) {
         // some code goes here
+        recordId = rid;
     }
 
     /**
@@ -61,6 +71,10 @@ public class Tuple implements Serializable {
      */
     public void setField(int i, Field f) {
         // some code goes here
+        assert schema.numFields() > i;
+        assert schema.getFieldType(i) == f.getType();
+
+        tupleField.set(i, f);
     }
 
     /**
@@ -71,7 +85,9 @@ public class Tuple implements Serializable {
      */
     public Field getField(int i) {
         // some code goes here
-        return null;
+        assert schema.numFields() > i;
+
+        return tupleField.get(i);
     }
 
     /**
@@ -84,7 +100,14 @@ public class Tuple implements Serializable {
      */
     public String toString() {
         // some code goes here
-        throw new UnsupportedOperationException("Implement this");
+        String strTuple = "";
+
+        for (int i = 0; i < schema.numFields(); ++i) {
+            if (i != 0)
+                strTuple += "\t";
+            strTuple += tupleField.get(i).toString();
+        }
+        return strTuple;
     }
 
     /**
@@ -94,14 +117,19 @@ public class Tuple implements Serializable {
     public Iterator<Field> fields()
     {
         // some code goes here
-        return null;
+        return tupleField.iterator();
     }
 
     /**
-     * reset the TupleDesc of thi tuple
+     * reset the TupleDesc of the tuple
      * */
     public void resetTupleDesc(TupleDesc td)
     {
         // some code goes here
+        schema = td;
+        tupleField.clear();
+        // add clear slot when init tuple
+        for (int i = 0; i < td.numFields(); ++i)
+            tupleField.add(null);
     }
 }
