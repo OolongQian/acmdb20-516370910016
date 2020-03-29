@@ -1,7 +1,12 @@
 package simpledb;
 
+import sun.awt.image.ImageWatched;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+
+import javax.xml.crypto.Data;
 import java.io.*;
 
+import java.util.LinkedList;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -9,13 +14,44 @@ import java.util.concurrent.ConcurrentHashMap;
  * disk. Access methods call into it to retrieve pages, and it fetches
  * pages from the appropriate location.
  * <p>
- * The BufferPool is also responsible for locking;  when a transaction fetches
+ * The BufferPool is also responsible for locking; when a transaction fetches
  * a page, BufferPool checks that the transaction has the appropriate
  * locks to read/write the page.
  * 
  * @Threadsafe, all fields are final
  */
 public class BufferPool {
+
+    /**
+     * Helper class to hold page and its relevant bookkeeping information,
+     * including the associated transaction and permission
+     *
+     * Bp means Bookkeeping
+     * */
+    private static class PageBp {
+        private Page page;
+        private LinkedList<TransactionId> transactionIds;
+        private LinkedList<Permissions> permissions;
+
+        public PageBp(Page page) {
+            this.page = page;
+            transactionIds = new LinkedList<>();
+            permissions = new LinkedList<>();
+        }
+
+        public Page getPage() {
+            return page;
+        }
+
+        public void pinTransaction (TransactionId transId, Permissions perm) {
+            transactionIds.add(transId);
+            permissions.add(perm);
+        }
+
+        public void releaseTransaction () {
+            throw new NotImplementedException();
+        }
+    }
     /** Bytes per page, including header. */
     private static final int PAGE_SIZE = 4096;
 
@@ -26,6 +62,8 @@ public class BufferPool {
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
 
+    private int numPages;
+    private LinkedList<PageBp> pageBuffer;
     /**
      * Creates a BufferPool that caches up to numPages pages.
      *
@@ -33,6 +71,8 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
         // some code goes here
+        this.numPages = numPages;
+        this.pageBuffer = new LinkedList<>();
     }
     
     public static int getPageSize() {
@@ -64,10 +104,24 @@ public class BufferPool {
      * @param pid the ID of the requested page
      * @param perm the requested permissions on the page
      */
-    public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
-        throws TransactionAbortedException, DbException {
+    public Page getPage(TransactionId tid, PageId pid, Permissions perm)
+            throws TransactionAbortedException, DbException {
         // some code goes here
-        return null;
+
+        // if present in buffer
+        for (PageBp pageBp : pageBuffer) {
+            if (pageBp.getPage().getId().equals(pid)) {
+                return pageBp.getPage();
+            }
+        }
+
+        // fetch from disk
+        DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
+        Page page = dbFile.readPage(pid);
+        PageBp pageBp = new PageBp(page);
+        pageBp.pinTransaction(tid, perm);
+
+        return page;
     }
 
     /**
@@ -162,7 +216,6 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
-
     }
 
     /** Remove the specific page id from the buffer pool.
