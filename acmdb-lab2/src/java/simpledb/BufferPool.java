@@ -30,28 +30,19 @@ public class BufferPool {
      * */
     private static class PageBp {
         private Page page;
-        private LinkedList<TransactionId> transactionIds;
-        private LinkedList<Permissions> permissions;
+        /**
+         * No need to consider transaction and permission in lab 1|2.
+         * */
 
         public PageBp(Page page) {
             this.page = page;
-            transactionIds = new LinkedList<>();
-            permissions = new LinkedList<>();
         }
 
         public Page getPage() {
             return page;
         }
-
-        public void pinTransaction (TransactionId transId, Permissions perm) {
-            transactionIds.add(transId);
-            permissions.add(perm);
-        }
-
-        public void releaseTransaction () {
-            throw new NotImplementedException();
-        }
     }
+
     /** Bytes per page, including header. */
     private static final int PAGE_SIZE = 4096;
 
@@ -62,8 +53,15 @@ public class BufferPool {
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
 
+    /**
+     * pageBuffer works as cache.
+     * We implement least recently used eviction policy,
+     *      thus need to maintain an recently used ordering in this buffer.
+     *      The most recently used page is lifted to front.
+     * */
     private int numPages;
     private LinkedList<PageBp> pageBuffer;
+
     /**
      * Creates a BufferPool that caches up to numPages pages.
      *
@@ -106,11 +104,13 @@ public class BufferPool {
      */
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
             throws TransactionAbortedException, DbException {
-        // some code goes here
 
         // if present in buffer
         for (PageBp pageBp : pageBuffer) {
             if (pageBp.getPage().getId().equals(pid)) {
+            	// page found, re-order pageBuffer.
+	            pageBuffer.remove(pageBp);
+	            pageBuffer.addFirst(pageBp);
                 return pageBp.getPage();
             }
         }
@@ -118,15 +118,17 @@ public class BufferPool {
         // need to fetch from disk
 
         // if buffer is full, throw exception
-        if (pageBuffer.size() == numPages)
-            throw new DbException("BufferPool is full, but eviction hasn't been implemented. Abort");
-
+//        if (pageBuffer.size() == numPages)
+//            throw new DbException("BufferPool is full, but eviction hasn't been implemented. Abort.");
+	    
+	    // if buffer is full, evict.
+	    if (pageBuffer.size() == numPages)
+	    	evictPage();
+		
         DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
         Page page = dbFile.readPage(pid);
         PageBp pageBp = new PageBp(page);
-        pageBp.pinTransaction(tid, perm);
-        pageBuffer.add(pageBp);
-
+        pageBuffer.addFirst(pageBp);
 
         return page;
     }
@@ -223,6 +225,8 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
+	    for (PageBp pageBp : pageBuffer)
+	    	flushPage(pageBp.getPage().getId());
     }
 
     /** Remove the specific page id from the buffer pool.
@@ -245,6 +249,17 @@ public class BufferPool {
     private synchronized  void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
+	    // if present in buffer
+	    PageBp evicted = null;
+	    for (PageBp pageBp : pageBuffer)
+		    if (pageBp.getPage().getId().equals(pid))
+			    evicted = pageBp;
+	    assert evicted != null;
+	    
+	    DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
+	    file.writePage(evicted.getPage());
+	    
+	    evicted.getPage().markDirty(false, null);
     }
 
     /** Write all pages of the specified transaction to disk.
@@ -261,6 +276,15 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
+	    PageBp evicted = pageBuffer.getLast();
+	    
+	    try {
+		    flushPage(evicted.getPage().getId());
+	    } catch (IOException e) {
+	    	throw new DbException("Flush page error");
+	    }
+	    
+	    pageBuffer.remove(evicted);
     }
 
 }
