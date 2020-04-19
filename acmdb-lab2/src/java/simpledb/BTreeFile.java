@@ -174,6 +174,17 @@ public class BTreeFile implements DbFile {
 		return keyField;
 	}
 	
+	class SortField implements Comparator<Field> {
+		public int compare(Field a, Field b) {
+			if (a.compare(Op.LESS_THAN, b))
+				return -1;
+			else if (a.compare(Op.EQUALS, b))
+				return 0;
+			else
+				return 1;
+		}
+	}
+	
 	/**
 	 * Recursive function which finds and locks the leaf page in the B+ tree corresponding to
 	 * the left-most page possibly containing the key field f. It locks all internal
@@ -295,8 +306,54 @@ public class BTreeFile implements DbFile {
 		// the new entry.  getParentWithEmtpySlots() will be useful here.  Don't forget to update
 		// the sibling pointers of all the affected leaf pages.  Return the page into which a 
 		// tuple with the given key field should be inserted.
-		return null;
 		
+		assert page.getNumTuples() == page.getMaxTuples();
+		int M = page.getNumTuples();
+		int numLeftPage = (M % 2 == 0) ? M / 2 : M / 2 + 1;
+		
+		// the field reported to parent is next to the last field in left page.
+		Field midField = page.getTuple(numLeftPage).getField(keyField);
+		// if field will be inserted to left page only if it is smaller than midField.
+		boolean insertLeftPage = field.compare(Op.LESS_THAN, midField);
+		
+		// create new leaf page.
+		BTreeLeafPage newLeaf = (BTreeLeafPage) getEmptyPage(tid, dirtypages, BTreePageId.LEAF);
+
+		// redistribute entries.
+		int shiftNum = page.getNumTuples() - numLeftPage;
+
+		Iterator<Tuple> reverseIter = page.reverseIterator();
+		for (int i = 0; i < shiftNum; ++i) {
+			assert reverseIter.hasNext();
+			Tuple tuple = reverseIter.next();
+			page.deleteTuple(tuple);
+			newLeaf.insertTuple(tuple);
+		}
+		
+		// relink leaf nodes.
+		newLeaf.setLeftSiblingId(page.getId());
+		newLeaf.setRightSiblingId(page.getRightSiblingId());
+		page.setRightSiblingId(newLeaf.getId());
+		
+		
+		BTreeInternalPage parentPage = getParentWithEmptySlots(tid, dirtypages, page.getParentId(), field);
+		BTreeEntry entry = new BTreeEntry(midField, page.getId(), newLeaf.getId());
+		parentPage.insertEntry(entry);
+		
+		// link children to parent.
+		page.setParentId(parentPage.getId());
+		newLeaf.setParentId(parentPage.getId());
+		
+		// update dirtyPages.
+		dirtypages.put(page.getId(), page);
+		dirtypages.put(newLeaf.getId(), newLeaf);
+		dirtypages.put(parentPage.getId(), parentPage);
+		
+		// decide which leaf to insert.
+		if (insertLeftPage)
+			return page;
+		else
+			return newLeaf;
 	}
 	
 	/**
@@ -324,7 +381,49 @@ public class BTreeFile implements DbFile {
 	                                              BTreeInternalPage page, Field field)
 			throws DbException, IOException, TransactionAbortedException {
 		// some code goes here
-		return null;
+		// insert the key field to parent.
+		assert page.getNumEntries() == page.getMaxEntries();
+		int M = page.getNumEntries();
+		int numLeftPage = ((M % 2 == 0) ? M / 2 : M / 2 + 1) - 1;
+		
+		// note that Field in internal node starts from 1 instead of 0, which is really fuck.
+		Field midField = page.getKey(numLeftPage + 1);
+		boolean insertLeftPage = field.compare(Op.LESS_THAN, midField);
+		
+		// create new internal node.
+		BTreeInternalPage newInternal = (BTreeInternalPage) getEmptyPage(tid, dirtypages, BTreePageId.INTERNAL);
+		
+		// redistribute entries.
+		int shiftEntryNum = page.getNumEntries() - numLeftPage;
+		Iterator<BTreeEntry> reverseIter = page.reverseIterator();
+		
+		for (int i = 0; i < shiftEntryNum; ++i) {
+			assert reverseIter.hasNext();
+			BTreeEntry entry = reverseIter.next();
+			// if is middle key, do not insert.
+			page.deleteKeyAndRightChild(entry);
+			if (entry.getKey() != midField)
+				newInternal.insertEntry(entry);
+		}
+		
+		BTreeInternalPage parentPage = getParentWithEmptySlots(tid, dirtypages, page.getParentId(), midField);
+		BTreeEntry entry = new BTreeEntry(midField, page.getId(), newInternal.getId());
+		parentPage.insertEntry(entry);
+		
+		// link children to parent.
+		page.setParentId(parentPage.getId());
+		newInternal.setParentId(parentPage.getId());
+		
+		// update dirtyPages.
+		dirtypages.put(page.getId(), page);
+		dirtypages.put(newInternal.getId(), newInternal);
+		dirtypages.put(parentPage.getId(), parentPage);
+		
+		// decide which leaf to insert.
+		if (insertLeftPage)
+			return page;
+		else
+			return newInternal;
 	}
 	
 	/**
