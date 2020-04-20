@@ -74,7 +74,6 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 		}
 		
 		int totalTuples = page.getNumTuples() + otherPage.getNumTuples();
-
 		assertEquals(BTreeUtility.getNumTuplesPerPage(2), totalTuples);
 		assertTrue(BTreeUtility.getNumTuplesPerPage(2)/2 == page.getNumTuples() || 
 				BTreeUtility.getNumTuplesPerPage(2)/2 + 1 == page.getNumTuples());
@@ -116,7 +115,7 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 		BTreeEntry parentEntry = parent.iterator().next();
 		if(parentEntry.getLeftChild().equals(page.getId())) {
 			otherPage = (BTreeInternalPage) dirtypages.get(parentEntry.getRightChild());
-			assertTrue(field.compare(Op.LESS_THAN_OR_EQ,
+			assertTrue(field.compare(Op.LESS_THAN_OR_EQ, 
 					otherPage.iterator().next().getKey()));
 		}
 		else { // parentEntry.getRightChild().equals(page.getId())
