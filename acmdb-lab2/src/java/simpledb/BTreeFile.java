@@ -5,6 +5,7 @@ import java.io.*;
 import java.util.*;
 import java.nio.channels.FileChannel;
 
+import com.sun.prism.impl.Disposer;
 import simpledb.Predicate.Op;
 import sun.jvm.hotspot.ui.tree.BooleanTreeNodeAdapter;
 
@@ -333,12 +334,22 @@ public class BTreeFile implements DbFile {
 		// relink leaf nodes.
 		newLeaf.setLeftSiblingId(page.getId());
 		newLeaf.setRightSiblingId(page.getRightSiblingId());
+		if (page.getRightSiblingId() != null) {
+			BTreeLeafPage rightSibling = (BTreeLeafPage) getPage(tid, dirtypages, page.getRightSiblingId(), Permissions.READ_WRITE);
+			rightSibling.setLeftSiblingId(newLeaf.getId());
+			dirtypages.put(rightSibling.getId(), rightSibling);
+		}
 		page.setRightSiblingId(newLeaf.getId());
 		
+		BTreeInternalPage parentPage = getParentWithEmptySlots(tid, dirtypages, page.getParentId(), midField);
 		
-		BTreeInternalPage parentPage = getParentWithEmptySlots(tid, dirtypages, page.getParentId(), field);
 		BTreeEntry entry = new BTreeEntry(midField, page.getId(), newLeaf.getId());
-		parentPage.insertEntry(entry);
+		
+		try {
+			parentPage.insertEntry(entry);
+		} catch (DbException e) {
+			int a = 1;
+		}
 		
 		// link children to parent.
 		page.setParentId(parentPage.getId());
@@ -383,29 +394,26 @@ public class BTreeFile implements DbFile {
 		// some code goes here
 		// insert the key field to parent.
 		assert page.getNumEntries() == page.getMaxEntries();
-		int M = page.getNumEntries();
-		int numLeftPage = ((M % 2 == 0) ? M / 2 : M / 2 + 1) - 1;
-		
-		// note that Field in internal node starts from 1 instead of 0, which is really fuck.
-		Field midField = page.getKey(numLeftPage + 1);
-		boolean insertLeftPage = field.compare(Op.LESS_THAN, midField);
+		int numLeftPage = page.getNumEntries() / 2;
+		int shiftEntryNum = page.getNumEntries() - numLeftPage - 1; // leave one for push up.
 		
 		// create new internal node.
 		BTreeInternalPage newInternal = (BTreeInternalPage) getEmptyPage(tid, dirtypages, BTreePageId.INTERNAL);
 		
 		// redistribute entries.
-		int shiftEntryNum = page.getNumEntries() - numLeftPage;
 		Iterator<BTreeEntry> reverseIter = page.reverseIterator();
-		
 		for (int i = 0; i < shiftEntryNum; ++i) {
 			assert reverseIter.hasNext();
 			BTreeEntry entry = reverseIter.next();
 			// if is middle key, do not insert.
 			page.deleteKeyAndRightChild(entry);
-			if (entry.getKey() != midField)
-				newInternal.insertEntry(entry);
+			newInternal.insertEntry(entry);
 		}
 		
+		BTreeEntry midEntry = reverseIter.next();
+		page.deleteKeyAndRightChild(midEntry);
+		
+		Field midField = midEntry.getKey();
 		BTreeInternalPage parentPage = getParentWithEmptySlots(tid, dirtypages, page.getParentId(), midField);
 		BTreeEntry entry = new BTreeEntry(midField, page.getId(), newInternal.getId());
 		parentPage.insertEntry(entry);
@@ -414,10 +422,15 @@ public class BTreeFile implements DbFile {
 		page.setParentId(parentPage.getId());
 		newInternal.setParentId(parentPage.getId());
 		
+		// update children's parent pointer.
+		updateParentPointers(tid, dirtypages, newInternal);
+		
 		// update dirtyPages.
 		dirtypages.put(page.getId(), page);
 		dirtypages.put(newInternal.getId(), newInternal);
 		dirtypages.put(parentPage.getId(), parentPage);
+		
+		boolean insertLeftPage = field.compare(Op.LESS_THAN, midField);
 		
 		// decide which leaf to insert.
 		if (insertLeftPage)
@@ -466,6 +479,7 @@ public class BTreeFile implements DbFile {
 			parent = (BTreeInternalPage) getPage(tid, dirtypages, parentId,
 					Permissions.READ_WRITE);
 		}
+		
 		
 		// split the parent if needed
 		if (parent.getNumEmptySlots() == 0) {

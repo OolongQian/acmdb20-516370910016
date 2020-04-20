@@ -90,7 +90,11 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 			for(int j = 0; j < 600; ++j) {
 				tup = BTreeUtility.getBTreeTuple(i, 2);
 				empty.insertTuple(tid, tup);
-				// BTreeChecker.checkRep(empty, tid, new HashMap<PageId, Page>(), true);
+				try {
+					BTreeChecker.checkRep(empty, tid, new HashMap<PageId, Page>(), true);
+				} catch (AssertionError e) {
+					int a = 1;
+				}
 			}
 
 		}
@@ -197,6 +201,7 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 		BTreeEntry e = it.next();
 		BTreeInternalPage leftChild = (BTreeInternalPage) Database.getBufferPool().getPage(tid, e.getLeftChild(), Permissions.READ_ONLY);
 		BTreeInternalPage rightChild = (BTreeInternalPage) Database.getBufferPool().getPage(tid, e.getRightChild(), Permissions.READ_ONLY);
+		
 		assertTrue(leftChild.getNumEmptySlots() <= 252);
 		assertTrue(rightChild.getNumEmptySlots() <= 252);
 
@@ -205,7 +210,7 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 		for(int i = 0; i < 100; i++) {
 			int item = rand.nextInt(BTreeUtility.MAX_RAND_VALUE);
 			Tuple t = BTreeUtility.getBTreeTuple(item, 2);
-			Database.getBufferPool().insertTuple(tid, bigFile.getId(), t);
+ 			Database.getBufferPool().insertTuple(tid, bigFile.getId(), t);
 
 			IndexPredicate ipred = new IndexPredicate(Op.EQUALS, t.getField(0));
 			DbFileIterator fit = bigFile.indexIterator(tid, ipred);
