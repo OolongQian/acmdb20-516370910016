@@ -221,9 +221,8 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
-	    /**
-	     * May not be correct.
-	     * */
+	    
+	    // may not be correct.
 	    DbFile file = Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
 	    file.deleteTuple(tid, t);
     }
