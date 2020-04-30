@@ -1,13 +1,9 @@
 package simpledb;
 
-import java.beans.PersistenceDelegate;
 import java.io.*;
 import java.util.*;
-import java.nio.channels.FileChannel;
 
-import com.sun.prism.impl.Disposer;
 import simpledb.Predicate.Op;
-import sun.jvm.hotspot.ui.tree.BooleanTreeNodeAdapter;
 
 /**
  * BTreeFile is an implementation of a DbFile that stores a B+ tree.
@@ -990,7 +986,7 @@ public class BTreeFile implements DbFile {
 		updateParentPointers(tid, dirtypages, leftPage);
 		
 		setEmptyPage(tid, dirtypages, rightPage.getId().pageNumber());
-
+		
 		// recursively remove parentEntry.
 		deleteParentEntry(tid, dirtypages, leftPage, parent, parentEntry);
 	}
