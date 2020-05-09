@@ -1,5 +1,6 @@
 package simpledb;
 
+import java.io.File;
 import java.util.*;
 
 /**
@@ -8,7 +9,11 @@ import java.util.*;
 public class Join extends Operator {
 
     private static final long serialVersionUID = 1L;
-
+    
+    private JoinPredicate p;
+    private DbIterator child1, child2;
+    private Tuple tuple1 = null;
+    
     /**
      * Constructor. Accepts to children to join and the predicate to join them
      * on
@@ -22,11 +27,14 @@ public class Join extends Operator {
      */
     public Join(JoinPredicate p, DbIterator child1, DbIterator child2) {
         // some code goes here
+	    this.p = p;
+	    this.child1 = child1;
+	    this.child2 = child2;
     }
 
     public JoinPredicate getJoinPredicate() {
-        // some code goes here
-        return null;
+	    // some code goes here
+	    return p;
     }
 
     /**
@@ -36,7 +44,9 @@ public class Join extends Operator {
      * */
     public String getJoinField1Name() {
         // some code goes here
-        return null;
+	    TupleDesc tupleDesc1 = child1.getTupleDesc();
+	    int field1 = p.getField1();
+	    return tupleDesc1.getFieldName(field1);
     }
 
     /**
@@ -46,7 +56,9 @@ public class Join extends Operator {
      * */
     public String getJoinField2Name() {
         // some code goes here
-        return null;
+	    TupleDesc tupleDesc2 = child2.getTupleDesc();
+	    int field2 = p.getField2();
+	    return tupleDesc2.getFieldName(field2);
     }
 
     /**
@@ -55,20 +67,33 @@ public class Join extends Operator {
      */
     public TupleDesc getTupleDesc() {
         // some code goes here
-        return null;
+	    return TupleDesc.merge(child1.getTupleDesc(), child2.getTupleDesc());
     }
 
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
         // some code goes here
+	    super.open();
+	    tuple1 = null;
+	    child1.open();
+	    child2.open();
     }
 
     public void close() {
         // some code goes here
+	    super.close();
+	    tuple1 = null;
+	    child1.close();
+	    child2.close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
         // some code goes here
+	    super.close();
+	    super.open();
+	    tuple1 = null;
+	    child1.rewind();
+	    child2.rewind();
     }
 
     /**
@@ -91,18 +116,68 @@ public class Join extends Operator {
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
-        return null;
+
+	    // keep trying, until predicate holds or we run out of tuples.
+	    while (true) {
+
+		    // initialize tuple1.
+		    if (tuple1 == null) {
+			    // if child1 is empty.
+			    if (!child1.hasNext())
+				    return null;
+			    tuple1 = child1.next();
+		    }
+		
+			// iterate through tuple2.
+		    if (child2.hasNext()) {
+			    Tuple tuple2 = child2.next();
+			    if (p.filter(tuple1, tuple2)) {
+				    return tupleMerge(tuple1, tuple2);
+			    }
+		    } else {
+		        // even when tuple2 finishes, no satisfiable tuples.
+			    
+			    // if child1 also finishes, no next tuple.
+			    if (!child1.hasNext()) {
+				    return null;
+			    }
+			    else {
+			        // else, increment tuple1 and continue.
+				    tuple1 = child1.next();
+				    child2.rewind();
+				    continue;
+			    }
+		    }
+	    }
     }
 
     @Override
     public DbIterator[] getChildren() {
         // some code goes here
-        return null;
+	    DbIterator[] children = new DbIterator[2];
+	    children[0] = child1;
+	    children[1] = child2;
+	    return children;
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
         // some code goes here
+	    assert children.length == 2;
+	    child1 = children[0];
+	    child2 = children[1];
     }
-
+    
+    private Tuple tupleMerge(Tuple t1, Tuple t2) {
+        Tuple tJoin = new Tuple(getTupleDesc());
+        int i = 0;
+        
+        for (Iterator<Field> iter = t1.fields(); iter.hasNext(); ++i)
+	        tJoin.setField(i, iter.next());
+	
+	    for (Iterator<Field> iter = t2.fields(); iter.hasNext(); ++i)
+		    tJoin.setField(i, iter.next());
+	    
+	    return tJoin;
+    }
 }
