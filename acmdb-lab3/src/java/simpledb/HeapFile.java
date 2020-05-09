@@ -1,5 +1,8 @@
 package simpledb;
 
+import sun.jvm.hotspot.ui.HeapParametersPanel;
+import sun.net.www.HeaderParser;
+
 import javax.xml.crypto.Data;
 import java.awt.dnd.DropTarget;
 import java.io.*;
@@ -117,11 +120,37 @@ public class HeapFile implements DbFile {
 		}
 	}
 	
+	private HeapPageId getEmptyPageNo(TransactionId tid) throws TransactionAbortedException, DbException, IOException {
+		// search for an existing empty page.
+		for (int pgNo = 0; pgNo < numPages(); ++pgNo) {
+			HeapPageId pid = new HeapPageId(getId(), pgNo);
+			HeapPage page = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_ONLY);
+			if (page.getNumEmptySlots() > 0)
+				return pid;
+		}
+		
+		// if no page is empty, create another one and flush to the disk.
+		HeapPageId newPid = new HeapPageId(getId(), numPages());
+		HeapPage newPage = new HeapPage(newPid, HeapPage.createEmptyPageData());
+		writePage(newPage);
+		
+		return newPid;
+	}
+	
 	// see DbFile.java for javadocs
 	public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
 			throws DbException, IOException, TransactionAbortedException {
 		// some code goes here
-		return null;
+		ArrayList<Page> dirtyPages = new ArrayList<>();
+		
+		// get a page with empty slot.
+		HeapPageId pid = getEmptyPageNo(tid);
+		HeapPage page = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
+		page.insertTuple(t);
+		
+		dirtyPages.add(page);
+		
+		return dirtyPages;
 		// not necessary for lab1
 	}
 	
@@ -129,8 +158,15 @@ public class HeapFile implements DbFile {
 	public ArrayList<Page> deleteTuple(TransactionId tid, Tuple t) throws DbException,
 			TransactionAbortedException {
 		// some code goes here
-		return null;
 		// not necessary for lab1
+		ArrayList<Page> dirtyPages = new ArrayList<>();
+		
+		HeapPage page = (HeapPage) Database.getBufferPool().getPage(tid, t.getRecordId().getPageId(), Permissions.READ_WRITE);
+		page.deleteTuple(t);
+		
+		dirtyPages.add(page);
+		
+		return dirtyPages;
 	}
 	
 	// see DbFile.java for javadocs

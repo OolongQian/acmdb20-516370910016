@@ -111,10 +111,6 @@ public class BufferPool {
         }
 
         // need to fetch from disk
-
-        // if buffer is full, throw exception
-//        if (pageBuffer.size() == numPages)
-//            throw new DbException("BufferPool is full, but eviction hasn't been implemented. Abort.");
 	    
 	    // if buffer is full, evict.
 	    if (pageBuffer.size() == numPages)

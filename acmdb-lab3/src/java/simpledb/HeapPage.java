@@ -250,6 +250,30 @@ public class HeapPage implements Page {
 	public void deleteTuple(Tuple t) throws DbException {
 		// some code goes here
 		// not necessary for lab1
+		
+		// if not on this page.
+		if (t.getRecordId() == null || t.getRecordId().getPageId() == null)
+			throw new DbException("HeapPage delete, tuple has no valid recordId.");
+		
+		if (getId() != t.getRecordId().getPageId())
+			throw new DbException("HeapPage delete, tuple does not exist in this page.");
+		
+		int slotNo = t.getRecordId().tupleno();
+
+		if (!tuples[slotNo].equals(t))
+			throw new DbException("HeapPage delete, tuple mismatch.");
+		
+		
+		String strSlots = byteArToBitString(header).substring(0, numSlots);
+		String newStrSlots = strSlots.substring(0, slotNo) + "0" + strSlots.substring(slotNo + 1, numSlots);
+		byte[] newHeader = bitStringToByteAr(newStrSlots);
+		for (int i = 0; i < header.length; ++i)
+			header[i] = newHeader[i];
+		
+		markSlotUsed(slotNo, false);
+		
+		// reflect this tuple is no longer in the page.
+		t.setRecordId(null);
 	}
 	
 	/**
@@ -263,6 +287,23 @@ public class HeapPage implements Page {
 	public void insertTuple(Tuple t) throws DbException {
 		// some code goes here
 		// not necessary for lab1
+		
+		if (getNumEmptySlots() == 0 || !t.getTupleDesc().equals(td))
+			throw new DbException("HeapPage insert error.");
+		
+		String strSlots = byteArToBitString(header);
+		int slotNo = strSlots.indexOf('0');
+		
+		tuples[slotNo] = t;
+		
+		markSlotUsed(slotNo, true);
+		
+		t.setRecordId(new RecordId(getId(), slotNo));
+		
+		String newStrSlots = strSlots.substring(0, slotNo) + "1" + strSlots.substring(slotNo + 1, numSlots);
+		byte[] newHeader = bitStringToByteAr(newStrSlots);
+		for (int i = 0; i < header.length; ++i)
+			header[i] = newHeader[i];
 	}
 	
 	/**
@@ -370,6 +411,25 @@ public class HeapPage implements Page {
 		String bitStr = "";
 		for (byte b : bAr) bitStr += byteToBitString(b);
 		return bitStr;
+	}
+	
+	private byte[] bitStringToByteAr(String str) {
+		byte[] byteAr = new byte[header.length];
+		
+		int cur = 0;
+		for (int iByte = 0; iByte < header.length; ++iByte) {
+			byte b = 0;
+			for (int iBit = 0; iBit < 8; ++iBit) {
+				if (cur < str.length()) {
+					int bit = (str.charAt(cur) == '0') ? 0 : (1 << iBit);
+					b += bit;
+					++cur;
+				}
+			}
+			byteAr[iByte] = b;
+		}
+		
+		return byteAr;
 	}
 }
 
