@@ -1,0 +1,7 @@
+This lab is about eviction and B+ tree indexing. 
+
+I have implemented LRU eviction policy, and I do not see anything difficult. It is kind of normal to me. 
+
+As to B+ tree index, first, we need to understand functions like 'insertTuple' and 'deleteTuple' in BTreeFile class, because these functions build up the back bone of the insertion and deletion procedure. 
+
+With the given general sturcture, I only need to implement 'findLeafPage', 'split leaf/internal' and 'merge leaf/internal'. I gradually get familiar with the related classes during the implementation of 'findLeafPage'. There is nothing tricky in 'split' and 'merge' procedure, because the recursive structure has been given by the instruction code for free.
