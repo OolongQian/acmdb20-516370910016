@@ -141,7 +141,7 @@ public class HashEquiJoin extends Operator {
 		
 		private LinkedList<LinkedList<HashAndTuple>> extendHashList = new LinkedList<>();
 		private LinkedList<Tuple> joinedList = new LinkedList<>();
-		private Iterator<Tuple> curIter = null;
+		private Iterator<Tuple> curIter;
 		
 		
 		class HashAndTuple {
@@ -165,52 +165,106 @@ public class HashEquiJoin extends Operator {
 				return 0;
 			return 1;
 		}
+
+//		public HashJoinIterator() throws DbException, NoSuchElementException,
+//				TransactionAbortedException {
+//			ArrayList<HashAndTuple> sortList = new ArrayList<>();
+//
+//			child1.open();
+//			while (child1.hasNext()) {
+//				Tuple t = child1.next();
+//				Field f = t.getField(p.getField1());
+//				sortList.add(new HashAndTuple(t, f, 1));
+//			}
+//
+//			child2.open();
+//			while (child2.hasNext()) {
+//				Tuple t = child2.next();
+//				Field f = t.getField(p.getField2());
+//				sortList.add(new HashAndTuple(t, f, 2));
+//			}
+//
+//			sortList.sort(this::hashCompare);
+//
+//
+//			 fill extended hash list.
+//			Iterator<HashAndTuple> iter = sortList.iterator();
+//			if (!iter.hasNext()) return;
+//
+//			HashAndTuple elem = iter.next();
+//			int curHash = elem.hash;
+//
+//			extendHashList.add(new LinkedList<>());
+//			extendHashList.getLast().add(elem);
+//
+//			while (iter.hasNext()) {
+//				elem = iter.next();
+//				if (elem.hash == curHash)
+//					extendHashList.getLast().add(elem);
+//				else {
+//					curHash = elem.hash;
+//					extendHashList.add(new LinkedList<>());
+//					extendHashList.getLast().add(elem);
+//				}
+//			}
+//
+//
+//
+//			 use extended hash list to create joined tuples list.
+//			for (Iterator<LinkedList<HashAndTuple>> oIter = extendHashList.iterator(); oIter.hasNext(); ) {
+//				LinkedList<HashAndTuple> list = oIter.next();
+//				LinkedList<Tuple> tuples1 = new LinkedList<>();
+//				LinkedList<Tuple> tuples2 = new LinkedList<>();
+//
+//				for (Iterator<HashAndTuple> iIter = list.iterator(); iIter.hasNext(); ) {
+//					HashAndTuple ht = iIter.next();
+//					if (ht.childIndex == 1)
+//						tuples1.add(ht.tuple);
+//					else {
+//						assert ht.childIndex == 2;
+//						tuples2.add(ht.tuple);
+//					}
+//				}
+//
+//				for (Iterator<Tuple> iter1 = tuples1.iterator(); iter1.hasNext(); ) {
+//					Tuple tuple1 = iter1.next();
+//					for (Iterator<Tuple> iter2 = tuples2.iterator(); iter2.hasNext(); ) {
+//						Tuple tuple2 = iter2.next();
+//						joinedList.add(tupleMerge(tuple1, tuple2));
+//					}
+//				}
+//			}
+		
+		// reset current index.
+//			curIter = joinedList.iterator();
+//		}
 		
 		public HashJoinIterator() throws DbException, NoSuchElementException,
 				TransactionAbortedException {
-			ArrayList<HashAndTuple> sortList = new ArrayList<>();
+			Map<Integer, LinkedList<HashAndTuple>> mapList = new HashMap<>();
 			
 			child1.open();
 			while (child1.hasNext()) {
 				Tuple t = child1.next();
 				Field f = t.getField(p.getField1());
-				sortList.add(new HashAndTuple(t, f, 1));
+				
+				if (mapList.containsKey(f.hashCode()))
+					mapList.put(f.hashCode(), new LinkedList<>());
+				mapList.get(f.hashCode()).add(new HashAndTuple(t, f, 1));
 			}
 			
 			child2.open();
 			while (child2.hasNext()) {
 				Tuple t = child2.next();
-				Field f = t.getField(p.getField2());
-				sortList.add(new HashAndTuple(t, f, 2));
+				Field f = t.getField(p.getField1());
+				
+				if (mapList.containsKey(f.hashCode()))
+					mapList.put(f.hashCode(), new LinkedList<>());
+				mapList.get(f.hashCode()).add(new HashAndTuple(t, f, 2));
 			}
 			
-			sortList.sort(this::hashCompare);
-			
-			
-			// fill extended hash list.
-			Iterator<HashAndTuple> iter = sortList.iterator();
-			if (!iter.hasNext()) return;
-			
-			HashAndTuple elem = iter.next();
-			int curHash = elem.hash;
-			
-			extendHashList.add(new LinkedList<>());
-			extendHashList.getLast().add(elem);
-			
-			while (iter.hasNext()) {
-				elem = iter.next();
-				if (elem.hash == curHash)
-					extendHashList.getLast().add(elem);
-				else {
-					curHash = elem.hash;
-					extendHashList.add(new LinkedList<>());
-					extendHashList.getLast().add(elem);
-				}
-			}
-			
-			// use extended hash list to create joined tuples list.
-			for (Iterator<LinkedList<HashAndTuple>> oIter = extendHashList.iterator(); oIter.hasNext(); ) {
-				LinkedList<HashAndTuple> list = oIter.next();
+			for (Iterator<Map.Entry<Integer, LinkedList<HashAndTuple>>> oIter = mapList.entrySet().iterator(); oIter.hasNext(); ) {
+				LinkedList<HashAndTuple> list = oIter.next().getValue();
 				LinkedList<Tuple> tuples1 = new LinkedList<>();
 				LinkedList<Tuple> tuples2 = new LinkedList<>();
 				
