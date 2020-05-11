@@ -192,8 +192,23 @@ public class HeapFile implements DbFile {
 				if (pageIter == null || curPage == null)
 					return false;
 				
-				// not reaches the end
-				return !((curPageNo + 1) == numPages() && !pageIter.hasNext());
+				while (true) {
+					if (pageIter.hasNext())
+						// if current page has next.
+						return true;
+						
+					// try next page.
+					if (curPageNo + 1 >= numPages())
+						// no next page.
+						return false;
+					else {
+						// fetch next page.
+						curPageNo += 1;
+						HeapPageId pid = new HeapPageId(getId(), curPageNo);
+						curPage = (HeapPage) Database.getBufferPool().getPage(tid, pid, null);
+						pageIter = curPage.iterator();
+					}
+				}
 			}
 			
 			@Override
