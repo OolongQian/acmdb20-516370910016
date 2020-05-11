@@ -2,6 +2,7 @@ package simpledb;
 
 import java.io.*;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 
 /**
@@ -192,7 +193,9 @@ public class BufferPool {
 	     * May not be correct.
 	     * */
 	    DbFile file = Database.getCatalog().getDatabaseFile(tableId);
-	    file.insertTuple(tid, t);
+	    ArrayList<Page> dirtyPages = file.insertTuple(tid, t);
+	    for (Page page :dirtyPages)
+	    	file.writePage(page);
     }
 
     /**
@@ -215,7 +218,9 @@ public class BufferPool {
 	    
 	    // may not be correct.
 	    DbFile file = Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
-	    file.deleteTuple(tid, t);
+	    ArrayList<Page> dirtyPages = file.deleteTuple(tid, t);
+	    for (Page page :dirtyPages)
+		    file.writePage(page);
     }
 
     /**
@@ -268,6 +273,10 @@ public class BufferPool {
     public synchronized  void flushPages(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+	    for (PageBp pageBp : pageBuffer) {
+	    	if (pageBp.page.isDirty() == tid)
+	    		flushPage(pageBp.page.getId());
+	    }
     }
 
     /**

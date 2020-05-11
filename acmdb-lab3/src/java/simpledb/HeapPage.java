@@ -259,12 +259,15 @@ public class HeapPage implements Page {
 			throw new DbException("HeapPage delete, tuple does not exist in this page.");
 		
 		int slotNo = t.getRecordId().tupleno();
-
-		if (!tuples[slotNo].equals(t))
-			throw new DbException("HeapPage delete, tuple mismatch.");
-		
-		
 		String strSlots = byteArToBitString(header).substring(0, numSlots);
+		if (strSlots.charAt(slotNo) != '1')
+			throw new DbException("HeapPage delete, tuple does not exist in this page.");
+		
+
+//		if (!tuples[slotNo].equals(t))
+//			throw new DbException("HeapPage delete, tuple mismatch.");
+		
+		
 		String newStrSlots = strSlots.substring(0, slotNo) + "0" + strSlots.substring(slotNo + 1, numSlots);
 		byte[] newHeader = bitStringToByteAr(newStrSlots);
 		for (int i = 0; i < header.length; ++i)
@@ -273,7 +276,8 @@ public class HeapPage implements Page {
 		markSlotUsed(slotNo, false);
 		
 		// reflect this tuple is no longer in the page.
-		t.setRecordId(null);
+		// TODO : here is strange, see BufferPoolWriteTest. This test prevents t.record to be null.
+//		t.setRecordId(null);
 	}
 	
 	/**
