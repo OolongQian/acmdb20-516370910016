@@ -78,7 +78,6 @@ public class HashEquiJoin extends Operator {
 	
 	private Iterator<Tuple> performHashJoin() throws DbException, NoSuchElementException,
 			TransactionAbortedException {
-		
 		return new HashJoinIterator();
 	}
 	
@@ -239,7 +238,7 @@ public class HashEquiJoin extends Operator {
 //			curIter = joinedList.iterator();
 //		}
 		
-		public HashJoinIterator() throws DbException, NoSuchElementException,
+		private HashJoinIterator() throws DbException, NoSuchElementException,
 				TransactionAbortedException {
 			Map<Integer, LinkedList<HashAndTuple>> mapList = new HashMap<>();
 			
@@ -248,7 +247,7 @@ public class HashEquiJoin extends Operator {
 				Tuple t = child1.next();
 				Field f = t.getField(p.getField1());
 				
-				if (mapList.containsKey(f.hashCode()))
+				if (!mapList.containsKey(f.hashCode()))
 					mapList.put(f.hashCode(), new LinkedList<>());
 				mapList.get(f.hashCode()).add(new HashAndTuple(t, f, 1));
 			}
@@ -258,7 +257,7 @@ public class HashEquiJoin extends Operator {
 				Tuple t = child2.next();
 				Field f = t.getField(p.getField1());
 				
-				if (mapList.containsKey(f.hashCode()))
+				if (!mapList.containsKey(f.hashCode()))
 					mapList.put(f.hashCode(), new LinkedList<>());
 				mapList.get(f.hashCode()).add(new HashAndTuple(t, f, 2));
 			}
