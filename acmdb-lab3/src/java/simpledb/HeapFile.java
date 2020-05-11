@@ -1,10 +1,5 @@
 package simpledb;
 
-import sun.jvm.hotspot.ui.HeapParametersPanel;
-import sun.net.www.HeaderParser;
-
-import javax.xml.crypto.Data;
-import java.awt.dnd.DropTarget;
 import java.io.*;
 import java.util.*;
 
