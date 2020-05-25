@@ -31,6 +31,7 @@ public class TableStatsTest extends SimpleDbTestBase {
 	private double[] getRandomTableScanCosts(int[] pageNums, int[] ioCosts) throws IOException, DbException, TransactionAbortedException {
 		double[] ret = new double[ioCosts.length];
 		for(int i = 0; i < ioCosts.length; ++i) {
+			System.out.println("hello " + ioCosts.length + " " + i);
 			HeapFile hf = SystemTestUtil.createRandomHeapFile(1, 992*pageNums[i], 32, null, tuples);
 			Assert.assertEquals(pageNums[i], hf.numPages());			
 			String tableName = SystemTestUtil.getUUID();
