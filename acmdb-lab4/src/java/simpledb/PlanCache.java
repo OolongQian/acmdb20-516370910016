@@ -28,7 +28,8 @@ public class PlanCache {
         @param s the set of joins to look up the best order for
         @return the best order for s in the cache
     */
-    Vector<LogicalJoinNode> getOrder(Set<LogicalJoinNode> s) {
+    Vector<LogicalJoinNode>
+    getOrder(Set<LogicalJoinNode> s) {
         return bestOrders.get(s);
     }
     
