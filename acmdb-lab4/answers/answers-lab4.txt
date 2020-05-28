@@ -1,0 +1,3 @@
+In general, I just follow the ACM-DB manual during implementation. I first implement the histogram. Then, construct and maintain histograms within TableStats class. I estimate the cost and cardinality of join operation follow the guide. And compute optimal join ordering given a list of join operations based on cost estimation, following the pseudo code. 
+
+One problem I encounter is that, several tests in this lab have running time limit. I messed up in HeapPage's header bitmap, which makes my program extremely slow. 
