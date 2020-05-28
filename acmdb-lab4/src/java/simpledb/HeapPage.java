@@ -1,5 +1,7 @@
 package simpledb;
 
+import oracle.jrockit.jfr.Recording;
+
 import java.util.*;
 import java.io.*;
 
@@ -264,10 +266,6 @@ public class HeapPage implements Page {
 		
 		t.setRecordId(null);
 		markSlotUsed(rid.tupleno(), false);
-		
-		// reflect this tuple is no longer in the page.
-		// TODO : here is strange, see BufferPoolWriteTest. This test prevents t.record to be null.
-//		t.setRecordId(null);
 	}
 	
 	/**
