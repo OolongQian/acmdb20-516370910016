@@ -143,23 +143,22 @@ public class JoinOptimizer {
 	                                               Map<String, Integer> tableAliasToId) {
 		
 		// if this is equality join and at least one p-key present.
-		if (joinOp == Predicate.Op.EQUALS && (t1pkey || t2pkey)) {
-			if (!t1pkey)
-				return card1;
-			else if (!t2pkey)
-				return card2;
-			else
+		if (joinOp == Predicate.Op.EQUALS) {
+			if (t1pkey && t2pkey)
 				return Integer.min(card1, card2);
-		}
-		
-		// if no primary key, just guess.
-		if (joinOp == Predicate.Op.EQUALS && (!t1pkey && !t2pkey)) {
-			return Integer.min(card1, card2);
+			else if (t1pkey)
+				return card2;
+			else if (t2pkey)
+				return card1;
+			else
+				return Integer.max(card1, card2);
 		}
 		
 		// if range join.
 		double ratio = 0.3;
-		return (int) (card1 * card2 * ratio);
+		int cost1 = (int) (card1 * card2 * ratio);
+		int cost2 = estimateTableJoinCardinality(Predicate.Op.EQUALS, table1Alias, table2Alias, field1PureName, field2PureName, card1, card2, false, false, stats, tableAliasToId);
+		return Integer.max(cost1, cost2);
 	}
 	
 	/**
