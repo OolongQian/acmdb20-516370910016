@@ -1,5 +1,7 @@
 package simpledb;
 
+import oracle.jrockit.jfr.Recording;
+
 import java.util.*;
 import java.io.*;
 
@@ -252,28 +254,18 @@ public class HeapPage implements Page {
 		// not necessary for lab1
 		
 		// if not on this page.
-		if (t.getRecordId() == null || t.getRecordId().getPageId() == null)
+		RecordId rid = t.getRecordId();
+		if (rid == null || rid.getPageId() == null)
 			throw new DbException("HeapPage delete, tuple has no valid recordId.");
 		
-		if (getId() != t.getRecordId().getPageId())
+		if (getId() != rid.getPageId())
 			throw new DbException("HeapPage delete, tuple does not exist in this page.");
 		
-		int slotNo = t.getRecordId().tupleno();
-		String strSlots = byteArToBitString(header).substring(0, numSlots);
-		if (strSlots.charAt(slotNo) != '1')
+		if (!isSlotUsed(rid.tupleno()))
 			throw new DbException("HeapPage delete, tuple does not exist in this page.");
 		
-
-//		if (!tuples[slotNo].equals(t))
-//			throw new DbException("HeapPage delete, tuple mismatch.");
-		
-		
-		String newStrSlots = strSlots.substring(0, slotNo) + "0" + strSlots.substring(slotNo + 1, numSlots);
-		byte[] newHeader = bitStringToByteAr(newStrSlots);
-		for (int i = 0; i < header.length; ++i)
-			header[i] = newHeader[i];
-		
-		markSlotUsed(slotNo, false);
+		t.setRecordId(null);
+		markSlotUsed(rid.tupleno(), false);
 		
 		// reflect this tuple is no longer in the page.
 		// TODO : here is strange, see BufferPoolWriteTest. This test prevents t.record to be null.
@@ -295,19 +287,20 @@ public class HeapPage implements Page {
 		if (getNumEmptySlots() == 0 || !t.getTupleDesc().equals(td))
 			throw new DbException("HeapPage insert error.");
 		
-		String strSlots = byteArToBitString(header);
-		int slotNo = strSlots.indexOf('0');
+		// find the first empty slot
+		int freeSlotNo = -1;
+		for (int i = 0; i < numSlots; i++) {
+			if (!isSlotUsed(i)) {
+				freeSlotNo = i;
+				break;
+			}
+		}
 		
-		tuples[slotNo] = t;
+		assert freeSlotNo != -1;
 		
-		markSlotUsed(slotNo, true);
-		
-		t.setRecordId(new RecordId(getId(), slotNo));
-		
-		String newStrSlots = strSlots.substring(0, slotNo) + "1" + strSlots.substring(slotNo + 1, numSlots);
-		byte[] newHeader = bitStringToByteAr(newStrSlots);
-		for (int i = 0; i < header.length; ++i)
-			header[i] = newHeader[i];
+		tuples[freeSlotNo] = t;
+		markSlotUsed(freeSlotNo, true);
+		t.setRecordId(new RecordId(getId(), freeSlotNo));
 	}
 	
 	/**
@@ -339,12 +332,9 @@ public class HeapPage implements Page {
 	public int getNumEmptySlots() {
 		// some code goes here
 		int cnt = 0;
-		String strSlots = byteArToBitString(header).substring(0, numSlots);
-		for (int i = 0; i < strSlots.length(); ++i) {
-			if (strSlots.charAt(i) == '0') {
-				cnt += 1;
-			}
-		}
+		for (int i = 0; i < numSlots; ++i)
+			if (!(isSlotUsed(i)))
+				++cnt;
 		return cnt;
 	}
 	
@@ -353,8 +343,7 @@ public class HeapPage implements Page {
 	 */
 	public boolean isSlotUsed(int i) {
 		// some code goes here
-		String strSlots = byteArToBitString(header).substring(0, numSlots);
-		return strSlots.charAt(i) == '1';
+		return (header[i / 8] & (1 << (i % 8))) != 0;
 	}
 	
 	/**
@@ -363,6 +352,35 @@ public class HeapPage implements Page {
 	private void markSlotUsed(int i, boolean value) {
 		// some code goes here
 		// not necessary for lab1
+		int headerbit = i % 8;
+		int headerbyte = (i - headerbit) / 8;
+		if (value)
+			header[headerbyte] |= 1 << headerbit;
+		else
+			header[headerbyte] &= (0xFF ^ (1 << headerbit));
+	}
+	
+	
+	public class TupleIterator implements Iterator<Tuple> {
+		
+		private int current = 0;
+		
+		public boolean hasNext() {
+			while (current < numSlots) {
+				if (isSlotUsed(current))
+					return true;
+				++current;
+			}
+			return false;
+		}
+		
+		public Tuple next() {
+			if (hasNext()) {
+				return tuples[current++];
+			}
+			throw new NoSuchElementException();
+		}
+		
 	}
 	
 	/**
@@ -370,70 +388,7 @@ public class HeapPage implements Page {
 	 * (note that this iterator shouldn't return tuples in empty slots!)
 	 */
 	public Iterator<Tuple> iterator() {
-		// some code goes here
-		return new Iterator<Tuple>() {
-			private int curBit = -1;
-			
-			@Override
-			public boolean hasNext() {
-				// check whether there is '1' left.
-				String strSlots = byteArToBitString(header).substring(0, numSlots);
-				for (int i = curBit + 1; i < strSlots.length(); ++i) {
-					if (strSlots.charAt(i) == '1') {
-						return true;
-					}
-				}
-				return false;
-			}
-			
-			@Override
-			public Tuple next() {
-				String strSlots = byteArToBitString(header).substring(0, numSlots);
-				for (int i = curBit + 1; i < strSlots.length(); ++i) {
-					if (strSlots.charAt(i) == '1') {
-						curBit = i;
-						return tuples[i];
-					}
-				}
-				throw new IndexOutOfBoundsException();
-			}
-		};
-	}
-	
-	/**
-	 * Utility for converting byte[] to bit string.
-	 */
-	private static String byteToBitString(byte b) {
-		return ""
-				+ (byte) ((b >> 0) & 0x1) + (byte) ((b >> 1) & 0x1)
-				+ (byte) ((b >> 2) & 0x1) + (byte) ((b >> 3) & 0x1)
-				+ (byte) ((b >> 4) & 0x1) + (byte) ((b >> 5) & 0x1)
-				+ (byte) ((b >> 6) & 0x1) + (byte) ((b >> 7) & 0x1);
-	}
-	
-	private String byteArToBitString(byte[] bAr) {
-		String bitStr = "";
-		for (byte b : bAr) bitStr += byteToBitString(b);
-		return bitStr;
-	}
-	
-	private byte[] bitStringToByteAr(String str) {
-		byte[] byteAr = new byte[header.length];
-		
-		int cur = 0;
-		for (int iByte = 0; iByte < header.length; ++iByte) {
-			byte b = 0;
-			for (int iBit = 0; iBit < 8; ++iBit) {
-				if (cur < str.length()) {
-					int bit = (str.charAt(cur) == '0') ? 0 : (1 << iBit);
-					b += bit;
-					++cur;
-				}
-			}
-			byteAr[iByte] = b;
-		}
-		
-		return byteAr;
+		return new TupleIterator();
 	}
 }
 

@@ -43,10 +43,7 @@ public class HeapPageId implements PageId {
     public int hashCode() {
         // some code goes here
         // concatenate their binary representation, and then parse it to integer hashcode.
-        String hashStr = Integer.toBinaryString(tableId) + Integer.toBinaryString(pgNo);
-        if (hashStr.length() > 32)
-            hashStr = hashStr.substring(0, 31);
-        return Integer.parseInt(hashStr, 2);
+        return getTableId() ^ pageNumber();
     }
 
     /**
