@@ -1,0 +1,9 @@
+The Filter and Join HashEquiJoin are operators on database tuple stream. They consist of one predicate and a database tuple iterator, and act as iterators of the tuples satisfying the predicate. 
+
+I first implemented the Predicate and JoinPredicate class as the building block for Operators. The Filter and Join class are implemented as usual. For the HashEquiJoin, I hashed all tuples based on their field's hash code. After sorting over all hash codes, the operator iterates over each tuple pair with identical hash code. The iterator processes each pair online, thus the memory consumption is linear. 
+
+For aggregators, Aggregate class gives a consistent interface and Integer/StringAggregator provides implementations for varying field types. I simply distribute the tuples to be aggregated into lists (groups), and the aggregated statistics are queried for each list. 
+
+For HeapFile Mutability, the insert/deleteTuple methods in HeapFile class queries the corresponding heap page from buffer pool, then the insertion or deletion details is handled by HeapPage's methods. In HeapPages, we need to maintain header (byte string needs taking with care), markSlotUsed, etc.
+
+The last is the insert and delete class, these two operators invokes BufferPool.insert/deleteTuple(). The BufferPool asks for the data table, and the heapFile performs insertion and deletion. The dirty pages in the buffer pool are not handled systematically. I just write them all to the disk. 
