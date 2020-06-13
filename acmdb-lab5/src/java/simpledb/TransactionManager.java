@@ -1,5 +1,6 @@
 package simpledb;
 
+
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -12,51 +13,51 @@ public class TransactionManager {
 	private ConcurrentHashMap<PageId, List<Lock>> page2read;
 	private Random rand = new Random(0);
 	private Object synchronizer;
-	
+
 	public class Lock {
 		public TransactionId tid;
 		public PageId pid;
 		public LockType type;
-		
+
 		Lock(TransactionId tid, PageId pid, LockType t) {
 			this.tid = tid;
 			this.pid = pid;
 			type = t;
 		}
 	}
-	
+
 	public enum LockType {
 		EXCLUSIVE, SHARED
 	}
-	
+
 	public TransactionManager(Object synchronizer) {
 		trans2lock = new ConcurrentHashMap<>();
 		page2write = new ConcurrentHashMap<>();
 		page2read = new ConcurrentHashMap<>();
 		this.synchronizer = synchronizer;
 	}
-	
+
 	public List<Lock> getLocksFromTid(TransactionId tid) {
-		return trans2lock.getOrDefault(tid, new ArrayList<>());
+		return trans2lock.get(tid);
 	}
-	
+
 	private void nap_mayAbort(long startTime) throws TransactionAbortedException {
 		int NAP_TIME = 50;
-		int ABORT_RAND_RANGE = 400;
-		int ABORT_BASE = 200;
-		
+		int ABORT_RAND_RANGE = 200;
+		int ABORT_BASE = 100;
+
 		long curTime = System.currentTimeMillis();
 		if (curTime - startTime > ABORT_BASE + rand.nextInt(ABORT_RAND_RANGE)) {
 			throw new TransactionAbortedException();
 		}
-		
+
 		try {
 			synchronizer.wait(NAP_TIME);
 		} catch (InterruptedException e) {
 		}
 	}
-	
-	
+
+
 	public void acquireLock(TransactionId tid, PageId pid, Permissions perm) throws TransactionAbortedException {
 		if (!trans2lock.containsKey(tid))
 			trans2lock.put(tid, new ArrayList<>());
@@ -99,17 +100,16 @@ public class TransactionManager {
 			page2write.get(pid).add(lock);
 		}
 		trans2lock.get(tid).add(lock);
-
 	}
-	
+
 	public void release(TransactionId tid, PageId pid) {
 		trans2lock.getOrDefault(tid, new LinkedList<>()).removeIf(lock -> lock.pid == pid);
 		page2write.getOrDefault(pid, new LinkedList<>()).removeIf(lock -> lock.tid == tid);
 		page2read.getOrDefault(pid, new LinkedList<>()).removeIf(lock -> lock.tid == tid);
-		
+
 		synchronizer.notifyAll();
 	}
-	
+
 	public void release(TransactionId tid) {
 		if (trans2lock.containsKey(tid)) {
 			List<Lock> locks = trans2lock.get(tid);
@@ -121,14 +121,13 @@ public class TransactionManager {
 			locks.clear();
 			trans2lock.remove(tid);
 		}
-		
+
 		synchronizer.notifyAll();
 	}
-	
+
 	public boolean holdsLock(TransactionId tid, PageId pid) {
 		for (Lock lock : trans2lock.get(tid))
 			if (lock.pid == pid) return true;
 		return false;
 	}
-	
 }

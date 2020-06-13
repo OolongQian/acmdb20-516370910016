@@ -16,21 +16,22 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * @Threadsafe, all fields are final
  */
+
 public class BufferPool {
 	/**
 	 * Bytes per page, including header.
 	 */
 	private static final int PAGE_SIZE = 4096;
-	
+
 	private static int pageSize = PAGE_SIZE;
-	
+
 	/**
 	 * Default number of pages passed to the constructor. This is used by
 	 * other classes. BufferPool should use the numPages argument to the
 	 * constructor instead.
 	 */
 	public static final int DEFAULT_PAGES = 50;
-	
+
 	/**
 	 * pageBuffer works as cache.
 	 * We implement least recently used eviction policy,
@@ -38,10 +39,10 @@ public class BufferPool {
 	 * The most recently used page is lifted to front.
 	 */
 	private int numPages;
-	
+
 	private static ConcurrentHashMap<PageId, Page> pid2page;
 	private static TransactionManager transactionManager;
-	
+
 	/**
 	 * Creates a BufferPool that caches up to numPages pages.
 	 *
@@ -53,21 +54,21 @@ public class BufferPool {
 		pid2page = new ConcurrentHashMap<>();
 		transactionManager = new TransactionManager(this);
 	}
-	
+
 	public static int getPageSize() {
 		return pageSize;
 	}
-	
+
 	// THIS FUNCTION SHOULD ONLY BE USED FOR TESTING!!
 	public static void setPageSize(int pageSize) {
 		BufferPool.pageSize = pageSize;
 	}
-	
+
 	// THIS FUNCTION SHOULD ONLY BE USED FOR TESTING!!
 	public static void resetPageSize() {
 		BufferPool.pageSize = PAGE_SIZE;
 	}
-	
+
 	/**
 	 * Retrieve the specified page with the associated permissions.
 	 * Will acquire a lock and may block if that lock is held by another
@@ -85,21 +86,10 @@ public class BufferPool {
 	 */
 	public synchronized Page getPage(TransactionId tid, PageId pid, Permissions perm)
 			throws TransactionAbortedException, DbException {
-		
+
 		transactionManager.acquireLock(tid, pid, perm);
-		
+
 		// Get Page
-//		Page page = pid2page.get(pid);
-//		if (page == null) {
-//			if (pid2page.size() >= numPages)
-//				evictPage();
-//
-//			page = Database.getCatalog().getDatabaseFile(pid.getTableId()).readPage(pid);
-//			pid2page.put(pid, page);
-//		}
-//
-//		return page;
-		
 		if (!pid2page.containsKey(pid)) {
 			if (pid2page.size() >= numPages)
 				evictPage();
@@ -107,10 +97,10 @@ public class BufferPool {
 			Page page = Database.getCatalog().getDatabaseFile(pid.getTableId()).readPage(pid);
 			pid2page.put(pid, page);
 		}
-		
+
 		return pid2page.get(pid);
 	}
-	
+
 	/**
 	 * ensure the page is in buffer pool. */
 	private void pin2pool(Page page) throws DbException {
@@ -119,7 +109,7 @@ public class BufferPool {
 			evictPage();
 		pid2page.put(pid, page);
 	}
-	
+
 	/**
 	 * Releases the lock on a page.
 	 * Calling this is very risky, and may result in wrong behavior. Think hard
@@ -134,7 +124,7 @@ public class BufferPool {
 		// not necessary for lab1|lab2
 		transactionManager.release(tid, pid);
 	}
-	
+
 	/**
 	 * Release all locks associated with a given transaction.
 	 *
@@ -145,7 +135,7 @@ public class BufferPool {
 		// not necessary for lab1|lab2
 		transactionComplete(tid, true);
 	}
-	
+
 	/**
 	 * Return true if the specified transaction has a lock on the specified page
 	 */
@@ -154,7 +144,7 @@ public class BufferPool {
 		// not necessary for lab1|lab2
 		return transactionManager.holdsLock(tid, p);
 	}
-	
+
 	/**
 	 * Commit or abort a given transaction; release all locks associated to
 	 * the transaction.
@@ -166,20 +156,23 @@ public class BufferPool {
 			throws IOException {
 		// some code goes here
 		// not necessary for lab1|lab2
+
 		if (commit)
 			flushPages(tid);
 		else { // this tid is aborted.
-			// discard all dirty pages(if is read/write)
 			List<TransactionManager.Lock> locks = transactionManager.getLocksFromTid(tid);
+			if (locks == null)
+				return;
+
 			for (TransactionManager.Lock lock : locks) {
 				if (lock.type == TransactionManager.LockType.EXCLUSIVE)
 					discardPage(lock.pid);
 			}
 		}
-		
+
 		transactionManager.release(tid);
 	}
-	
+
 	/**
 	 * Add a tuple to the specified table on behalf of transaction tid.  Will
 	 * acquire a write lock on the page the tuple is added to and any other
@@ -199,16 +192,16 @@ public class BufferPool {
 			throws DbException, IOException, TransactionAbortedException {
 		// some code goes here
 		// not necessary for lab1
-		
+
 		DbFile file = Database.getCatalog().getDatabaseFile(tableId);
 		ArrayList<Page> dirtyPages = file.insertTuple(tid, t);
-		
+
 		for (Page p : dirtyPages) {
 			pin2pool(p);
 			p.markDirty(true, tid);
 		}
 	}
-	
+
 	/**
 	 * Remove the specified tuple from the buffer pool.
 	 * Will acquire a write lock on the page the tuple is removed from and any
@@ -226,16 +219,16 @@ public class BufferPool {
 			throws DbException, IOException, TransactionAbortedException {
 		// some code goes here
 		// not necessary for lab1
-		
+
 		DbFile file = Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
 		ArrayList<Page> dirtyPages = file.deleteTuple(tid, t);
-		
+
 		for (Page p : dirtyPages) {
 			pin2pool(p);
 			p.markDirty(true, tid);
 		}
 	}
-	
+
 	/**
 	 * Flush all dirty pages to disk.
 	 * NB: Be careful using this routine -- it writes dirty data to disk so will
@@ -247,7 +240,7 @@ public class BufferPool {
 		for (PageId pid : pid2page.keySet())
 			flushPage(pid);
 	}
-	
+
 	/**
 	 * Remove the specific page id from the buffer pool.
 	 * Needed by the recovery manager to ensure that the
@@ -262,7 +255,7 @@ public class BufferPool {
 		// not necessary for lab1
 		pid2page.remove(pid);
 	}
-	
+
 	/**
 	 * Flushes a certain page to disk
 	 *
@@ -273,12 +266,13 @@ public class BufferPool {
 		// not necessary for lab1
 		// if present in buffer
 		Page page = pid2page.get(pid);
-		if (page.isDirty() != null) {
+		TransactionId dirtier = page.isDirty();
+		if (dirtier != null) {
 			Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(page);
-			page.markDirty(false, null);
+			page.markDirty(false, dirtier);
 		}
 	}
-	
+
 	/**
 	 * Write all pages of the specified transaction to disk.
 	 */
@@ -286,12 +280,14 @@ public class BufferPool {
 		// some code goes here
 		// not necessary for lab1|lab2
 		List<TransactionManager.Lock> locks = transactionManager.getLocksFromTid(tid);
-		
+		if (locks == null)
+			return;
+
 		for (TransactionManager.Lock l : locks)
 			if (l.type == TransactionManager.LockType.EXCLUSIVE && pid2page.containsKey(l.pid))
 				flushPage(l.pid);
 	}
-	
+
 	/**
 	 * Discards a page from the buffer pool.
 	 * Flushes the page to disk to ensure dirty pages are updated on disk.
@@ -303,11 +299,11 @@ public class BufferPool {
 		for (PageId ePid : pid2page.keySet())
 			if (pid2page.get(ePid).isDirty() == null)
 				cleanPids.add(ePid);
-		
+
 		PageId evictPid = null;
 		if (!cleanPids.isEmpty())
 			evictPid = cleanPids.get(new Random().nextInt(cleanPids.size()));
-		
+
 		if (evictPid == null)
 			throw new DbException("No page is clean, can not evict.");
 		try {
@@ -318,3 +314,4 @@ public class BufferPool {
 		}
 	}
 }
+
