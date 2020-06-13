@@ -177,7 +177,7 @@ public class HeapFile implements DbFile {
 			public void open() throws DbException, TransactionAbortedException {
 				curPageNo = 0;
 				HeapPageId pid = new HeapPageId(getId(), curPageNo);
-				curPage = (HeapPage) Database.getBufferPool().getPage(tid, pid, null);
+				curPage = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_ONLY);
 				pageIter = curPage.iterator();
 			}
 			
@@ -200,7 +200,7 @@ public class HeapFile implements DbFile {
 						// fetch next page.
 						curPageNo += 1;
 						HeapPageId pid = new HeapPageId(getId(), curPageNo);
-						curPage = (HeapPage) Database.getBufferPool().getPage(tid, pid, null);
+						curPage = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_ONLY);
 						pageIter = curPage.iterator();
 					}
 				}
@@ -217,7 +217,7 @@ public class HeapFile implements DbFile {
 				} else {
 					curPageNo++;
 					HeapPageId pid = new HeapPageId(getId(), curPageNo);
-					curPage = (HeapPage) Database.getBufferPool().getPage(tid, pid, null);
+					curPage = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_ONLY);
 					pageIter = curPage.iterator();
 					assert pageIter.hasNext();
 					// TODO : release the page
@@ -229,7 +229,7 @@ public class HeapFile implements DbFile {
 			public void rewind() throws DbException, TransactionAbortedException {
 				curPageNo = 0;
 				HeapPageId pid = new HeapPageId(getId(), curPageNo);
-				curPage = (HeapPage) Database.getBufferPool().getPage(tid, pid, null);
+				curPage = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_ONLY);
 				pageIter = curPage.iterator();
 			}
 			
